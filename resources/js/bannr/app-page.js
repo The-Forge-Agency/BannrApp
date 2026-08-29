@@ -5,6 +5,7 @@ import { FORMATS, findFormat } from './wrappers.js';
 import { LAYOUTS, renderFile } from './render.js';
 import { DEFAULT_STATE, hashToState, stateToHash } from './share.js';
 import { trimArt } from './layout.js';
+import { artToPngBlob, artToSvg, IMAGE_THEMES } from './export-image.js';
 
 const TAGS = [
     { id: 'all', label: 'Toutes' },
@@ -34,6 +35,11 @@ export function bannrComponent() {
         result: { ...EMPTY_RESULT },
         toast: '',
         truncatedLink: false,
+        imageTheme: 'terminal',
+        imageThemes: IMAGE_THEMES,
+        gallery: false,
+        galleryItems: [],
+        gallerySeq: 0,
         renderTimer: null,
         previewTimer: null,
         renderSeq: 0,
@@ -84,6 +90,16 @@ export function bannrComponent() {
             if (this.state.asciiOnly && !findFont(this.state.font).ascii) this.fontTag = 'all';
 
             this.$watch('state.text', () => this.schedulePreviews());
+            this.$watch('gallery', (open) => {
+                document.body.style.overflow = open ? 'hidden' : '';
+                if (open) this.renderGallery();
+            });
+            for (const key of ['state.text', 'state.format', 'state.asciiOnly', 'state.layout', 'state.width', 'state.align', 'state.frame', 'state.force', 'state.forceMode', 'fontTag']) {
+                this.$watch(key, () => this.gallery && this.renderGallery());
+            }
+            window.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape' && this.gallery) this.gallery = false;
+            });
             this.$watch('state.asciiOnly', () => this.schedulePreviews());
             this.$watch('fontTag', () => this.schedulePreviews());
             this.$watch('state.layout', () => this.schedulePreviews());
@@ -157,6 +173,38 @@ export function bannrComponent() {
             }
         },
 
+        // Gallery: every visible font, full pipeline, ready to copy per card.
+        async renderGallery() {
+            const seq = ++this.gallerySeq;
+            const fonts = this.visibleFonts;
+            this.galleryItems = fonts.map((font) => ({ font, file: '', art: '', nonAscii: 0, forced: false, pending: true }));
+            const items = this.galleryItems;
+            const batch = 4;
+            for (let i = 0; i < fonts.length; i += batch) {
+                await Promise.all(
+                    fonts.slice(i, i + batch).map(async (font, j) => {
+                        try {
+                            const result = await renderFile({ ...this.state, font: font.id });
+                            if (seq !== this.gallerySeq) return;
+                            Object.assign(items[i + j], { file: result.file, art: result.art, nonAscii: result.nonAscii.reduce((n, e) => n + e.count, 0), forced: result.forced, pending: false });
+                        } catch {
+                            items[i + j].pending = false;
+                        }
+                    }),
+                );
+                if (seq !== this.gallerySeq) return;
+            }
+        },
+
+        async copyGalleryItem(item) {
+            await this.toClipboard(item.file, `Copié · ${item.font.name} → ${this.currentFormat.filename}`);
+        },
+
+        useGalleryItem(item) {
+            this.gallery = false;
+            this.pickFont(item.font.id);
+        },
+
         async copy() {
             await this.toClipboard(this.result.file, `Copié · prêt à coller dans ${this.currentFormat.filename}`);
         },
@@ -184,6 +232,52 @@ export function bannrComponent() {
             link.click();
             setTimeout(() => URL.revokeObjectURL(url), 1000);
             this.notify(`${format.filename} téléchargé`);
+        },
+
+        imageOptions() {
+            const css = getComputedStyle(document.documentElement);
+            return { theme: this.imageTheme, bg: css.getPropertyValue('--bg').trim(), fg: css.getPropertyValue('--accent').trim(), ink: css.getPropertyValue('--ink').trim(), fontFamily: css.getPropertyValue('--fm').trim() };
+        },
+
+        downloadBlob(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            link.click();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        },
+
+        imageName(ext) {
+            const slug = this.state.text.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 30) || 'banner';
+            return `${slug}.${ext}`;
+        },
+
+        downloadSvg() {
+            const svg = artToSvg(this.result.block, this.imageOptions());
+            this.downloadBlob(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }), this.imageName('svg'));
+            this.notify('SVG téléchargé');
+        },
+
+        async downloadPng() {
+            try {
+                const blob = await artToPngBlob(this.result.block, this.imageOptions());
+                this.downloadBlob(blob, this.imageName('png'));
+                this.notify('PNG téléchargé');
+            } catch (error) {
+                console.error(error);
+                this.notify('Export PNG impossible ici.');
+            }
+        },
+
+        async copyPng() {
+            try {
+                const blob = await artToPngBlob(this.result.block, this.imageOptions());
+                await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+                this.notify('Image copiée dans le presse-papier');
+            } catch {
+                this.notify('Copie d\'image non supportée ici : télécharge le PNG.');
+            }
         },
 
         async share() {

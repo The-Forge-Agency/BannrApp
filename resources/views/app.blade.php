@@ -41,6 +41,7 @@
                 <div class="card p-4 sm:p-5">
                     <div class="flex items-center justify-between gap-3 mb-3">
                         <p class="kicker">3 · Police</p>
+                        <button type="button" class="btn btn-xs ml-auto" @click="gallery = true" title="Ton texte dans toutes les polices, d'un coup">▦ Tout voir</button>
                         <label class="toggle text-xs muted">
                             <input type="checkbox" x-model="state.asciiOnly">
                             <span class="toggle-track"></span>
@@ -212,6 +213,19 @@ Ce que tu vois ici, c'est exactement ce que
                         <button type="button" class="btn flex-1" @click="download()" :disabled="!result.file">Télécharger</button>
                         <button type="button" class="btn flex-1 sm:flex-none" @click="copyArt()" :disabled="!result.art" title="L'art seul, sans wrapper">Art seul</button>
                     </div>
+                    <div class="flex flex-wrap items-center gap-2 mt-2">
+                        <span class="kicker">Image</span>
+                        <div class="seg" role="tablist" aria-label="Fond de l'image">
+                            <template x-for="theme in imageThemes" :key="theme.id">
+                                <button type="button" class="seg-item" role="tab" :aria-selected="imageTheme === theme.id" @click="imageTheme = theme.id" x-text="theme.label"></button>
+                            </template>
+                        </div>
+                        <span class="ml-auto flex gap-2">
+                            <button type="button" class="btn btn-xs" @click="copyPng()" :disabled="!result.art" title="Copier l'image dans le presse-papier">Copier PNG</button>
+                            <button type="button" class="btn btn-xs" @click="downloadPng()" :disabled="!result.art">PNG</button>
+                            <button type="button" class="btn btn-xs" @click="downloadSvg()" :disabled="!result.art">SVG</button>
+                        </span>
+                    </div>
                 </div>
 
                 <div class="flex flex-wrap items-center justify-between gap-2 text-xs muted px-1">
@@ -224,6 +238,47 @@ Ce que tu vois ici, c'est exactement ce que
             </section>
         </div>
     </main>
+
+    {{-- ============ Galerie : toutes les polices, ton texte, ton format ============ --}}
+    <div x-cloak x-show="gallery" x-transition.opacity.duration.200ms class="gallery" role="dialog" aria-modal="true" aria-label="Galerie de polices" @click.self="gallery = false">
+        <div class="gallery-bar">
+            <div class="w-full max-w-7xl mx-auto px-4 sm:px-6 flex flex-wrap items-center gap-3">
+                <span class="font-display font-semibold">Galerie</span>
+                <span class="muted text-sm hidden sm:inline" x-text="galleryItems.length + ' polices · ' + currentFormat.filename"></span>
+                <input type="text" class="input input-sm mono flex-1 min-w-[140px] max-w-xs" placeholder="Ton texte…" maxlength="200" x-model="state.text" @input="scheduleRender()" autocomplete="off" spellcheck="false">
+                <select class="select input-sm" style="width: auto;" x-model="state.format" @change="scheduleRender()" aria-label="Format">
+                    <template x-for="format in formats" :key="format.id"><option :value="format.id" x-text="format.label"></option></template>
+                </select>
+                <label class="toggle text-xs muted">
+                    <input type="checkbox" x-model="state.asciiOnly">
+                    <span class="toggle-track"></span>
+                    <span class="hidden sm:inline">ASCII-safe</span>
+                </label>
+                <button type="button" class="btn btn-sm ml-auto" @click="gallery = false">Fermer ✕</button>
+            </div>
+        </div>
+        <div class="w-full max-w-7xl mx-auto px-4 sm:px-6 py-5">
+            <p x-cloak x-show="!state.text.trim()" class="muted text-center py-16">Tape un texte au-dessus : il s'affiche ici dans toutes les polices d'un coup.</p>
+            <p x-cloak x-show="state.text.trim() && galleryItems.length === 0" class="muted text-center py-16">Aucune police avec ce filtre. Décoche « ASCII-safe » ou change de catégorie.</p>
+            <div class="gallery-grid" x-show="state.text.trim()">
+                <template x-for="item in galleryItems" :key="item.font.id">
+                    <article class="gallery-card" :class="{ 'is-current': state.font === item.font.id }">
+                        <header class="flex items-center gap-2 mb-2">
+                            <span class="text-sm font-medium" x-text="item.font.name"></span>
+                            <span class="font-badge" :class="item.font.ascii ? 'is-safe' : 'is-unicode'" x-text="item.font.ascii ? '7-bit' : 'unicode'"></span>
+                            <span class="font-badge is-unicode" x-show="item.nonAscii && !item.forced" x-text="'⚠ ' + item.nonAscii"></span>
+                            <span class="font-badge is-safe" x-show="item.forced">forcé 7 bits</span>
+                            <span class="ml-auto flex gap-1">
+                                <button type="button" class="btn btn-xs" @click="useGalleryItem(item)">Choisir</button>
+                                <button type="button" class="btn btn-xs btn-primary" @click="copyGalleryItem(item)" :disabled="!item.file">Copier</button>
+                            </span>
+                        </header>
+                        <pre class="gallery-pre" x-text="item.pending ? '…' : item.file"></pre>
+                    </article>
+                </template>
+            </div>
+        </div>
+    </div>
 
     <div x-cloak x-show="toast" x-transition.opacity.duration.200ms class="toast" x-text="toast" role="status"></div>
 </div>

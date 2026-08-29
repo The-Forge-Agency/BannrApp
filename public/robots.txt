@@ -1,2 +1,11 @@
+# Hi, robot. Nice of you to look.
+#   ____
+#  | __ )  __ _ _ __  _ __  _ __
+#  |  _ \ / _` | '_ \| '_ \| '__|
+#  | |_) | (_| | | | | | | | |
+#  |____/ \__,_|_| |_|_| |_|_|
+# Made with Bannr -- your text as ASCII art, ready to paste.
+# https://github.com/The-Forge-Agency/BannrApp
+
 User-agent: *
 Disallow:

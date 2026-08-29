@@ -1,6 +1,6 @@
 import figlet from 'figlet';
 import { loadFont } from './font-loader.js';
-import { alignArt, composeBlock, frameArt, trimArt } from './layout.js';
+import { alignArt, artWidth, composeBlock, frameArt, trimArt } from './layout.js';
 import { findNonAscii, forceAscii } from './ascii.js';
 import { wrap } from './wrappers.js';
 
@@ -13,14 +13,12 @@ export const LAYOUTS = [
 export async function renderArt(text, { font, layout = 'default', width = 80 }) {
     await loadFont(figlet, font);
     if (!text.trim()) return '';
-    const raw = figlet.textSync(text, {
-        font,
-        horizontalLayout: layout,
-        verticalLayout: 'default',
-        width: Math.max(20, width),
-        whitespaceBreak: true,
-    });
-    return trimArt(raw);
+    const options = { font, horizontalLayout: layout, verticalLayout: 'default', whitespaceBreak: true };
+    // Max width only breaks between words: a single word is never chopped
+    // mid-glyph, it simply overflows and scrolls.
+    const unbroken = trimArt(figlet.textSync(text, { ...options, width: 10000 }));
+    if (!/\s/.test(text.trim()) || artWidth(unbroken) <= width) return unbroken;
+    return trimArt(figlet.textSync(text, { ...options, width: Math.max(20, width) }));
 }
 
 /** Full pipeline: art → 7-bit guard → align/frame → free lines → wrapper. */

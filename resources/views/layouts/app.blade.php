@@ -3,7 +3,6 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <title>@yield('title', 'Bannr — Ton texte en ASCII art, prêt à coller dans ton code')</title>
     <meta name="description" content="@yield('description', 'Bannr transforme un texte en ASCII art (figlet) et l\'exporte déjà enrobé dans la bonne syntaxe de commentaire : README, JavaScript, robots.txt, HTML. 100% côté navigateur, ASCII 7 bits garanti, zéro compte, open source.')">
